@@ -3,841 +3,603 @@
 # see scripts/kbuild/config-language.txt.
 #
 
-menu "Linux System Utilities"
+mainmenu "BusyBox Configuration"
 
-config BLKID
-	bool "blkid"
-	default n
-	select VOLUMEID
-	help
-	  Lists labels and UUIDs of all filesystems.
-	  WARNING:
-	  With all submodules selected, it will add ~8k to busybox.
-
-config DMESG
-	bool "dmesg"
-	default n
-	help
-	  dmesg is used to examine or control the kernel ring buffer. When the
-	  Linux kernel prints messages to the system log, they are stored in
-	  the kernel ring buffer. You can use dmesg to print the kernel's ring
-	  buffer, clear the kernel ring buffer, change the size of the kernel
-	  ring buffer, and change the priority level at which kernel messages
-	  are also logged to the system console. Enable this option if you
-	  wish to enable the 'dmesg' utility.
-
-config FEATURE_DMESG_PRETTY
-	bool "Pretty dmesg output"
+config HAVE_DOT_CONFIG
+	bool
 	default y
-	depends on DMESG
-	help
-	  If you wish to scrub the syslog level from the output, say 'Y' here.
-	  The syslog level is a string prefixed to every line with the form
-	  "<#>".
 
-	  With this option you will see:
-	    # dmesg
-	    Linux version 2.6.17.4 .....
-	    BIOS-provided physical RAM map:
-	     BIOS-e820: 0000000000000000 - 000000000009f000 (usable)
+menu "Busybox Settings"
 
-	  Without this option you will see:
-	    # dmesg
-	    <5>Linux version 2.6.17.4 .....
-	    <6>BIOS-provided physical RAM map:
-	    <6> BIOS-e820: 0000000000000000 - 000000000009f000 (usable)
+menu "General Configuration"
 
-config FBSET
-	bool "fbset"
+config DESKTOP
+	bool "Enable options for full-blown desktop systems"
 	default n
 	help
-	  fbset is used to show or change the settings of a Linux frame buffer
-	  device. The frame buffer device provides a simple and unique
-	  interface to access a graphics display. Enable this option
-	  if you wish to enable the 'fbset' utility.
+	  Enable options and features which are not essential.
+	  Select this only if you plan to use busybox on full-blown
+	  desktop machine with common Linux distro, not on an embedded box.
 
-config FEATURE_FBSET_FANCY
-	bool "Turn on extra fbset options"
-	default n
-	depends on FBSET
-	help
-	  This option enables extended fbset options, allowing one to set the
-	  framebuffer size, color depth, etc. interface to access a graphics
-	  display. Enable this option if you wish to enable extended fbset
-	  options.
-
-config FEATURE_FBSET_READMODE
-	bool "Turn on fbset readmode support"
-	default n
-	depends on FBSET
-	help
-	  This option allows fbset to read the video mode database stored by default as /etc/fb.modes, which can be used to set frame buffer device to pre-defined video modes.
-
-config FDFLUSH
-	bool "fdflush"
+config EXTRA_COMPAT
+	bool "Provide compatible behavior for rare corner cases (bigger code)"
 	default n
 	help
-	  fdflush is only needed when changing media on slightly-broken
-	  removable media drives. It is used to make Linux believe that a
-	  hardware disk-change switch has been actuated, which causes Linux to
-	  forget anything it has cached from the previous media. If you have
-	  such a slightly-broken drive, you will need to run fdflush every time
-	  you change a disk. Most people have working hardware and can safely
-	  leave this disabled.
+	  This option makes grep, sed etc handle rare corner cases
+	  (embedded NUL bytes and such). This makes code bigger and uses
+	  some GNU extensions in libc. You probably only need this option
+	  if you plan to run busybox on desktop.
 
-config FDFORMAT
-	bool "fdformat"
+config FEATURE_ASSUME_UNICODE
+	bool "Assume that 1:1 char/glyph correspondence is not true"
 	default n
 	help
-	  fdformat is used to low-level format a floppy disk.
+	  This makes various applets aware that one byte is not
+	  one character on screen.
 
-config FDISK
-	bool "fdisk"
-	default n
+	  Busybox aims to eventually work correctly with Unicode displays.
+	  Any older encodings are not guaranteed to work.
+	  Probably by the time when busybox will be fully Unicode-clean,
+	  other encodings will be mainly of historic interest.
+
+choice
+	prompt "Buffer allocation policy"
+	default FEATURE_BUFFERS_USE_MALLOC
 	help
-	  The fdisk utility is used to divide hard disks into one or more
-	  logical disks, which are generally called partitions. This utility
-	  can be used to list and edit the set of partitions or BSD style
-	  'disk slices' that are defined on a hard drive.
+	  There are 3 ways BusyBox can handle buffer allocations:
+	  - Use malloc. This costs code size for the call to xmalloc.
+	  - Put them on stack. For some very small machines with limited stack
+	    space, this can be deadly. For most folks, this works just fine.
+	  - Put them in BSS. This works beautifully for computers with a real
+	    MMU (and OS support), but wastes runtime RAM for uCLinux. This
+	    behavior was the only one available for BusyBox versions 0.48 and
+	    earlier.
 
-config FDISK_SUPPORT_LARGE_DISKS
-	bool "Support over 4GB disks"
+config FEATURE_BUFFERS_USE_MALLOC
+	bool "Allocate with Malloc"
+
+config FEATURE_BUFFERS_GO_ON_STACK
+	bool "Allocate on the Stack"
+
+config FEATURE_BUFFERS_GO_IN_BSS
+	bool "Allocate in the .bss section"
+
+endchoice
+
+config SHOW_USAGE
+	bool "Show terse applet usage messages"
 	default y
-	depends on FDISK
 	help
-	  Enable this option to support large disks > 4GB.
+	  All BusyBox applets will show help messages when invoked with
+	  wrong arguments. You can turn off printing these terse usage
+	  messages if you say no here.
+	  This will save you up to 7k.
 
-config FEATURE_FDISK_WRITABLE
-	bool "Write support"
+config FEATURE_VERBOSE_USAGE
+	bool "Show verbose applet usage messages"
+	default n
+	select SHOW_USAGE
+	help
+	  All BusyBox applets will show more verbose help messages when
+	  busybox is invoked with --help. This will add a lot of text to the
+	  busybox binary. In the default configuration, this will add about
+	  13k, but it can add much more depending on your configuration.
+
+config FEATURE_COMPRESS_USAGE
+	bool "Store applet usage messages in compressed form"
 	default y
-	depends on FDISK
+	depends on SHOW_USAGE
 	help
-	  Enabling this option allows you to create or change a partition table
-	  and write those changes out to disk. If you leave this option
-	  disabled, you will only be able to view the partition table.
+	  Store usage messages in compressed form, uncompress them on-the-fly
+	  when <applet> --help is called.
 
-config FEATURE_AIX_LABEL
-	bool "Support AIX disklabels"
-	default n
-	depends on FDISK && FEATURE_FDISK_WRITABLE
-	help
-	  Enabling this option allows you to create or change AIX disklabels.
-	  Most people can safely leave this option disabled.
+	  If you have a really tiny busybox with few applets enabled (and
+	  bunzip2 isn't one of them), the overhead of the decompressor might
+	  be noticeable. Also, if you run executables directly from ROM
+	  and have very little memory, this might not be a win. Otherwise,
+	  you probably want this.
 
-config FEATURE_SGI_LABEL
-	bool "Support SGI disklabels"
-	default n
-	depends on FDISK && FEATURE_FDISK_WRITABLE
-	help
-	  Enabling this option allows you to create or change SGI disklabels.
-	  Most people can safely leave this option disabled.
-
-config FEATURE_SUN_LABEL
-	bool "Support SUN disklabels"
-	default n
-	depends on FDISK && FEATURE_FDISK_WRITABLE
-	help
-	  Enabling this option allows you to create or change SUN disklabels.
-	  Most people can safely leave this option disabled.
-
-config FEATURE_OSF_LABEL
-	bool "Support BSD disklabels"
-	default n
-	depends on FDISK && FEATURE_FDISK_WRITABLE
-	help
-	  Enabling this option allows you to create or change BSD disklabels
-	  and define and edit BSD disk slices.
-
-config FEATURE_FDISK_ADVANCED
-	bool "Support expert mode"
-	default n
-	depends on FDISK && FEATURE_FDISK_WRITABLE
-	help
-	  Enabling this option allows you to do terribly unsafe things like
-	  define arbitrary drive geometry, move the beginning of data in a
-	  partition, and similarly evil things. Unless you have a very good
-	  reason you would be wise to leave this disabled.
-
-config FINDFS
-	bool "findfs"
-	default n
-	select VOLUMEID
-	help
-	  Prints the name of a filesystem with given label or UUID.
-	  WARNING:
-	  With all submodules selected, it will add ~8k to busybox.
-
-config FREERAMDISK
-	bool "freeramdisk"
+config FEATURE_INSTALLER
+	bool "Support --install [-s] to install applet links at runtime"
 	default n
 	help
-	  Linux allows you to create ramdisks. This utility allows you to
-	  delete them and completely free all memory that was used for the
-	  ramdisk. For example, if you boot Linux into a ramdisk and later
-	  pivot_root, you may want to free the memory that is allocated to the
-	  ramdisk. If you have no use for freeing memory from a ramdisk, leave
-	  this disabled.
+	  Enable 'busybox --install [-s]' support. This will allow you to use
+	  busybox at runtime to create hard links or symlinks for all the
+	  applets that are compiled into busybox.
 
-config FSCK_MINIX
-	bool "fsck_minix"
+config LOCALE_SUPPORT
+	bool "Enable locale support (system needs locale for this to work)"
 	default n
 	help
-	  The minix filesystem is a nice, small, compact, read-write filesystem
-	  with little overhead. It is not a journaling filesystem however and
-	  can experience corruption if it is not properly unmounted or if the
-	  power goes off in the middle of a write. This utility allows you to
-	  check for and attempt to repair any corruption that occurs to a minix
-	  filesystem.
+	  Enable this if your system has locale support and you would like
+	  busybox to support locale settings.
 
-config MKFS_MINIX
-	bool "mkfs_minix"
-	default n
-	help
-	  The minix filesystem is a nice, small, compact, read-write filesystem
-	  with little overhead. If you wish to be able to create minix
-	  filesystems this utility will do the job for you.
-
-comment "Minix filesystem support"
-	depends on FSCK_MINIX || MKFS_MINIX
-
-config FEATURE_MINIX2
-	bool "Support Minix fs v2 (fsck_minix/mkfs_minix)"
+config GETOPT_LONG
+	bool "Support for --long-options"
 	default y
-	depends on FSCK_MINIX || MKFS_MINIX
 	help
-	  If you wish to be able to create version 2 minix filesystems, enable
-	  this. If you enabled 'mkfs_minix' then you almost certainly want to
-	  be using the version 2 filesystem support.
+	  Enable this if you want busybox applets to use the gnu --long-option
+	  style, in addition to single character -a -b -c style options.
 
-config GETOPT
-	bool "getopt"
-	default n
-	help
-	  The getopt utility is used to break up (parse) options in command
-	  lines to make it easy to write complex shell scripts that also check
-	  for legal (and illegal) options. If you want to write horribly
-	  complex shell scripts, or use some horribly complex shell script
-	  written by others, this utility may be for you. Most people will
-	  wisely leave this disabled.
-
-config HEXDUMP
-	bool "hexdump"
-	default n
-	help
-	  The hexdump utility is used to display binary data in a readable
-	  way that is comparable to the output from most hex editors.
-
-config FEATURE_HEXDUMP_REVERSE
-	bool "Support -R, reverse of 'hexdump -Cv'"
-	default n
-	depends on HEXDUMP
-	help
-	  The hexdump utility is used to display binary data in an ascii
-	  readable way. This option creates binary data from an ascii input.
-	  NB: this option is non-standard. It's unwise to use it in scripts
-	  aimed to be portable.
-
-config HD
-	bool "hd"
-	default n
-	select HEXDUMP
-	help
-	  hd is an alias to hexdump -C.
-
-config HWCLOCK
-	bool "hwclock"
-	default n
-	help
-	  The hwclock utility is used to read and set the hardware clock
-	  on a system. This is primarily used to set the current time on
-	  shutdown in the hardware clock, so the hardware will keep the
-	  correct time when Linux is _not_ running.
-
-config FEATURE_HWCLOCK_LONG_OPTIONS
-	bool "Support long options (--hctosys,...)"
-	default n
-	depends on HWCLOCK && GETOPT_LONG
-	help
-	  By default, the hwclock utility only uses short options. If you
-	  are overly fond of its long options, such as --hctosys, --utc, etc)
-	  then enable this option.
-
-config FEATURE_HWCLOCK_ADJTIME_FHS
-	bool "Use FHS /var/lib/hwclock/adjtime"
+config FEATURE_DEVPTS
+	bool "Use the devpts filesystem for Unix98 PTYs"
 	default y
-	depends on HWCLOCK
 	help
-	  Starting with FHS 2.3, the adjtime state file is supposed to exist
-	  at /var/lib/hwclock/adjtime instead of /etc/adjtime. If you wish
-	  to use the FHS behavior, answer Y here, otherwise answer N for the
-	  classic /etc/adjtime path.
+	  Enable if you want BusyBox to use Unix98 PTY support. If enabled,
+	  busybox will use /dev/ptmx for the master side of the pseudoterminal
+	  and /dev/pts/<number> for the slave side. Otherwise, BSD style
+	  /dev/ttyp<number> will be used. To use this option, you should have
+	  devpts mounted.
 
-	  pathname.com/fhs/pub/fhs-2.3.html#VARLIBHWCLOCKSTATEDIRECTORYFORHWCLO
-
-config IPCRM
-	bool "ipcrm"
-	default n
-	select FEATURE_SUID
-	help
-	  The ipcrm utility allows the removal of System V interprocess
-	  communication (IPC) objects and the associated data structures
-	  from the system.
-
-config IPCS
-	bool "ipcs"
-	default n
-	select FEATURE_SUID
-	help
-	  The ipcs utility is used to provide information on the currently
-	  allocated System V interprocess (IPC) objects in the system.
-
-config LOSETUP
-	bool "losetup"
+config FEATURE_CLEAN_UP
+	bool "Clean up all memory before exiting (usually not needed)"
 	default n
 	help
-	  losetup is used to associate or detach a loop device with a regular
-	  file or block device, and to query the status of a loop device. This
-	  version does not currently support enabling data encryption.
+	  As a size optimization, busybox normally exits without explicitly
+	  freeing dynamically allocated memory or closing files. This saves
+	  space since the OS will clean up for us, but it can confuse debuggers
+	  like valgrind, which report tons of memory and resource leaks.
 
-config MDEV
-	bool "mdev"
+	  Don't enable this unless you have a really good reason to clean
+	  things up manually.
+
+config FEATURE_PIDFILE
+	bool "Support writing pidfiles"
 	default n
 	help
-	  mdev is a mini-udev implementation for dynamically creating device
-	  nodes in the /dev directory.
+	  This option makes some applets (e.g. crond, syslogd, inetd) write
+	  a pidfile in /var/run. Some applications rely on them.
 
-	  For more information, please see docs/mdev.txt
-
-config FEATURE_MDEV_CONF
-	bool "Support /etc/mdev.conf"
-	default n
-	depends on MDEV
-	help
-	  Add support for the mdev config file to control ownership and
-	  permissions of the device nodes.
-
-	  For more information, please see docs/mdev.txt
-
-config FEATURE_MDEV_RENAME
-	bool "Support subdirs/symlinks"
-	default n
-	depends on FEATURE_MDEV_CONF
-	help
-	  Add support for renaming devices and creating symlinks.
-
-	  For more information, please see docs/mdev.txt
-
-config FEATURE_MDEV_RENAME_REGEXP
-	bool "Support regular expressions substitutions when renaming device"
-	default n
-	depends on FEATURE_MDEV_RENAME
-	help
-	  Add support for regular expressions substitutions when renaming
-	  device.
-
-config FEATURE_MDEV_EXEC
-	bool "Support command execution at device addition/removal"
-	default n
-	depends on FEATURE_MDEV_CONF
-	help
-	  This adds support for an optional field to /etc/mdev.conf for
-	  executing commands when devices are created/removed.
-
-	  For more information, please see docs/mdev.txt
-
-config FEATURE_MDEV_LOAD_FIRMWARE
-	bool "Support loading of firmwares"
-	default n
-	depends on MDEV
-	help
-	  Some devices need to load firmware before they can be usable.
-
-	  These devices will request userspace look up the files in
-	  /lib/firmware/ and if it exists, send it to the kernel for
-	  loading into the hardware.
-
-config MKSWAP
-	bool "mkswap"
+config FEATURE_SUID
+	bool "Support for SUID/SGID handling"
 	default n
 	help
-	  The mkswap utility is used to configure a file or disk partition as
-	  Linux swap space. This allows Linux to use the entire file or
-	  partition as if it were additional RAM, which can greatly increase
-	  the capability of low-memory machines. This additional memory is
-	  much slower than real RAM, but can be very helpful at preventing your
-	  applications being killed by the Linux out of memory (OOM) killer.
-	  Once you have created swap space using 'mkswap' you need to enable
-	  the swap space using the 'swapon' utility.
+	  With this option you can install the busybox binary belonging
+	  to root with the suid bit set, and it will automatically drop
+	  priviledges for applets that don't need root access.
 
-config FEATURE_MKSWAP_V0
-	bool "Version 0 support"
-	default n
-	depends on MKSWAP
-#	depends on MKSWAP && DEPRECATED
+	  If you are really paranoid and don't want to do this, build two
+	  busybox binaries with different applets in them (and the appropriate
+	  symlinks pointing to each binary), and only set the suid bit on the
+	  one that needs it. The applets currently marked to need the suid bit
+	  are:
+
+	  crontab, dnsd, findfs, ipcrm, ipcs, login, passwd, ping, su,
+	  traceroute, vlock.
+
+config FEATURE_SUID_CONFIG
+	bool "Runtime SUID/SGID configuration via /etc/busybox.conf"
+	default n if FEATURE_SUID
+	depends on FEATURE_SUID
 	help
-	  Enable support for the old v0 style.
-	  If your kernel is older than 2.1.117, then v0 support is the
-	  only option.
+	  Allow the SUID / SGID state of an applet to be determined at runtime
+	  by checking /etc/busybox.conf. (This is sort of a poor man's sudo.)
+	  The format of this file is as follows:
 
-config MORE
-	bool "more"
-	default n
-	help
-	  more is a simple utility which allows you to read text one screen
-	  sized page at a time. If you want to read text that is larger than
-	  the screen, and you are using anything faster than a 300 baud modem,
-	  you will probably find this utility very helpful. If you don't have
-	  any need to reading text files, you can leave this disabled.
+	  <applet> = [Ssx-][Ssx-][x-] (<username>|<uid>).(<groupname>|<gid>)
 
-config FEATURE_USE_TERMIOS
-	bool "Use termios to manipulate the screen"
+	  An example might help:
+
+	  [SUID]
+	  su = ssx root.0 # applet su can be run by anyone and runs with
+	                  # euid=0/egid=0
+	  su = ssx        # exactly the same
+
+	  mount = sx- root.disk # applet mount can be run by root and members
+	                        # of group disk and runs with euid=0
+
+	  cp = --- # disable applet cp for everyone
+
+	  The file has to be owned by user root, group root and has to be
+	  writeable only by root:
+	        (chown 0.0 /etc/busybox.conf; chmod 600 /etc/busybox.conf)
+	  The busybox executable has to be owned by user root, group
+	  root and has to be setuid root for this to work:
+	        (chown 0.0 /bin/busybox; chmod 4755 /bin/busybox)
+
+	  Robert 'sandman' Griebl has more information here:
+	  <url: http://www.softforge.de/bb/suid.html >.
+
+config FEATURE_SUID_CONFIG_QUIET
+	bool "Suppress warning message if /etc/busybox.conf is not readable"
 	default y
-	depends on MORE || TOP
+	depends on FEATURE_SUID_CONFIG
 	help
-	  This option allows utilities such as 'more' and 'top' to determine
-	  the size of the screen. If you leave this disabled, your utilities
-	  that display things on the screen will be especially primitive and
-	  will be unable to determine the current screen size, and will be
-	  unable to move the cursor.
+	  /etc/busybox.conf should be readable by the user needing the SUID,
+	  check this option to avoid users to be notified about missing
+	  permissions.
 
-config VOLUMEID
+config SELINUX
+	bool "Support NSA Security Enhanced Linux"
+	default n
+	help
+	  Enable support for SELinux in applets ls, ps, and id. Also provide
+	  the option of compiling in SELinux applets.
+
+	  If you do not have a complete SELinux userland installed, this stuff
+	  will not compile. Go visit
+		http://www.nsa.gov/selinux/index.html
+	  to download the necessary stuff to allow busybox to compile with
+	  this option enabled. Specifially, libselinux 1.28 or better is
+	  directly required by busybox. If the installation is located in a
+	  non-standard directory, provide it by invoking make as follows:
+		CFLAGS=-I<libselinux-include-path> \
+		LDFLAGS=-L<libselinux-lib-path> \
+		make
+
+	  Most people will leave this set to 'N'.
+
+config FEATURE_PREFER_APPLETS
+	bool "exec prefers applets"
+	default n
+	help
+	  This is an experimental option which directs applets about to
+	  call 'exec' to try and find an applicable busybox applet before
+	  searching the PATH. This is typically done by exec'ing
+	  /proc/self/exe.
+	  This may affect shell, find -exec, xargs and similar applets.
+	  They will use applets even if /bin/<applet> -> busybox link
+	  is missing (or is not a link to busybox). However, this causes
+	  problems in chroot jails without mounted /proc and with ps/top
+	  (command name can be shown as 'exe' for applets started this way).
+
+config BUSYBOX_EXEC_PATH
+	string "Path to BusyBox executable"
+	default "/proc/self/exe"
+	help
+	  When Busybox applets need to run other busybox applets, BusyBox
+	  sometimes needs to exec() itself. When the /proc filesystem is
+	  mounted, /proc/self/exe always points to the currently running
+	  executable. If you haven't got /proc, set this to wherever you
+	  want to run BusyBox from.
+
+# These are auto-selected by other options
+
+config FEATURE_SYSLOG
 	bool #No description makes it a hidden option
 	default n
+	#help
+	#  This option is auto-selected when you select any applet which may
+	#  send its output to syslog. You do not need to select it manually.
 
-config FEATURE_VOLUMEID_EXT
-	bool "Ext filesystem"
+config FEATURE_HAVE_RPC
+	bool #No description makes it a hidden option
 	default n
-	depends on VOLUMEID
-	help
-	  TODO
-
-config FEATURE_VOLUMEID_REISERFS
-	bool "Reiser filesystem"
-	default n
-	depends on VOLUMEID
-	help
-	  TODO
-
-config FEATURE_VOLUMEID_FAT
-	bool "fat filesystem"
-	default n
-	depends on VOLUMEID
-	help
-	  TODO
-
-config FEATURE_VOLUMEID_HFS
-	bool "hfs filesystem"
-	default n
-	depends on VOLUMEID
-	help
-	  TODO
-
-config FEATURE_VOLUMEID_JFS
-	bool "jfs filesystem"
-	default n
-	depends on VOLUMEID
-	help
-	  TODO
-
-### config FEATURE_VOLUMEID_UFS
-###	bool "ufs filesystem"
-###	default n
-###	depends on VOLUMEID
-###	help
-###	  TODO
-
-config FEATURE_VOLUMEID_XFS
-	bool "xfs filesystem"
-	default n
-	depends on VOLUMEID
-	help
-	  TODO
-
-config FEATURE_VOLUMEID_NTFS
-	bool "ntfs filesystem"
-	default n
-	depends on VOLUMEID
-	help
-	  TODO
-
-config FEATURE_VOLUMEID_ISO9660
-	bool "iso9660 filesystem"
-	default n
-	depends on VOLUMEID
-	help
-	  TODO
-
-config FEATURE_VOLUMEID_UDF
-	bool "udf filesystem"
-	default n
-	depends on VOLUMEID
-	help
-	  TODO
-
-config FEATURE_VOLUMEID_LUKS
-	bool "luks filesystem"
-	default n
-	depends on VOLUMEID
-	help
-	  TODO
-
-config FEATURE_VOLUMEID_LINUXSWAP
-	bool "linux swap filesystem"
-	default n
-	depends on VOLUMEID
-	help
-	  TODO
-
-### config FEATURE_VOLUMEID_LVM
-###	bool "lvm"
-###	default n
-###	depends on VOLUMEID
-###	help
-###	  TODO
-
-config FEATURE_VOLUMEID_CRAMFS
-	bool "cramfs filesystem"
-	default n
-	depends on VOLUMEID
-	help
-	  TODO
-
-### config FEATURE_VOLUMEID_HPFS
-###	bool "hpfs filesystem"
-###	default n
-###	depends on VOLUMEID
-###	help
-###	  TODO
-
-config FEATURE_VOLUMEID_ROMFS
-	bool "romfs filesystem"
-	default n
-	depends on VOLUMEID
-	help
-	  TODO
-
-config FEATURE_VOLUMEID_SYSV
-	bool "sysv filesystem"
-	default n
-	depends on VOLUMEID
-	help
-	  TODO
-
-### config FEATURE_VOLUMEID_MINIX
-###	bool "minix filesystem"
-###	default n
-###	depends on VOLUMEID
-###	help
-###	  TODO
-
-### These only detect partition tables - not used (yet?)
-### config FEATURE_VOLUMEID_MAC
-###	bool "mac filesystem"
-###	default n
-###	depends on VOLUMEID
-###	help
-###	  TODO
-###
-### config FEATURE_VOLUMEID_MSDOS
-###	bool "msdos filesystem"
-###	default n
-###	depends on VOLUMEID
-###	help
-###	  TODO
-
-config FEATURE_VOLUMEID_OCFS2
-	bool "ocfs2 filesystem"
-	default n
-	depends on VOLUMEID
-	help
-	  TODO
-
-### config FEATURE_VOLUMEID_HIGHPOINTRAID
-###	bool "highpoint raid"
-###	default n
-###	depends on VOLUMEID
-###	help
-###	  TODO
-
-### config FEATURE_VOLUMEID_ISWRAID
-###	bool "intel raid"
-###	default n
-###	depends on VOLUMEID
-###	help
-###	  TODO
-
-### config FEATURE_VOLUMEID_LSIRAID
-###	bool "lsi raid"
-###	default n
-###	depends on VOLUMEID
-###	help
-###	  TODO
-
-### config FEATURE_VOLUMEID_VIARAID
-###	bool "via raid"
-###	default n
-###	depends on VOLUMEID
-###	help
-###	  TODO
-
-### config FEATURE_VOLUMEID_SILICONRAID
-###	bool "silicon raid"
-###	default n
-###	depends on VOLUMEID
-###	help
-###	  TODO
-
-### config FEATURE_VOLUMEID_NVIDIARAID
-###	bool "nvidia raid"
-###	default n
-###	depends on VOLUMEID
-###	help
-###	  TODO
-
-### config FEATURE_VOLUMEID_PROMISERAID
-###	bool "promise raid"
-###	default n
-###	depends on VOLUMEID
-###	help
-###	  TODO
-
-config FEATURE_VOLUMEID_LINUXRAID
-	bool "linuxraid"
-	default n
-	depends on VOLUMEID
-	help
-	  TODO
-
-config MOUNT
-	bool "mount"
-	default n
-	help
-	  All files and filesystems in Unix are arranged into one big directory
-	  tree. The 'mount' utility is used to graft a filesystem onto a
-	  particular part of the tree. A filesystem can either live on a block
-	  device, or it can be accessible over the network, as is the case with
-	  NFS filesystems. Most people using BusyBox will also want to enable
-	  the 'mount' utility.
-
-config FEATURE_MOUNT_FAKE
-	bool "Support option -f"
-	default n
-	depends on MOUNT
-	help
-	  Enable support for faking a file system mount.
-
-config FEATURE_MOUNT_VERBOSE
-	bool "Support option -v"
-	default n
-	depends on MOUNT
-	help
-	  Enable multi-level -v[vv...] verbose messages. Useful if you
-	  debug mount problems and want to see what is exactly passed
-	  to the kernel.
-
-config FEATURE_MOUNT_HELPERS
-	bool "Support mount helpers"
-	default n
-	depends on MOUNT
-	help
-	  Enable mounting of virtual file systems via external helpers.
-	  E.g. "mount obexfs#-b00.11.22.33.44.55 /mnt" will in effect call
-	  "obexfs -b00.11.22.33.44.55 /mnt"
-	  Also "mount -t sometype [-o opts] fs /mnt" will try
-	  "sometype [-o opts] fs /mnt" if simple mount syscall fails.
-	  The idea is to use such virtual filesystems in /etc/fstab.
-
-config FEATURE_MOUNT_LABEL
-	bool "Support specifiying devices by label or UUID"
-	default n
-	depends on MOUNT
-	select VOLUMEID
-	help
-	  This allows for specifying a device by label or uuid, rather than by
-	  name. This feature utilizes the same functionality as blkid/findfs.
-
-config FEATURE_MOUNT_NFS
-	bool "Support mounting NFS file systems"
-	default n
-	depends on MOUNT
-	select FEATURE_HAVE_RPC
-	select FEATURE_SYSLOG
-	help
-	  Enable mounting of NFS file systems.
-
-config FEATURE_MOUNT_CIFS
-	bool "Support mounting CIFS/SMB file systems"
-	default n
-	depends on MOUNT
-	help
-	  Enable support for samba mounts.
-
-config FEATURE_MOUNT_FLAGS
-	depends on MOUNT
-	bool "Support lots of -o flags in mount"
-	default y
-	help
-	  Without this, mount only supports ro/rw/remount. With this, it
-	  supports nosuid, suid, dev, nodev, exec, noexec, sync, async, atime,
-	  noatime, diratime, nodiratime, loud, bind, move, shared, slave,
-	  private, unbindable, rshared, rslave, rprivate, and runbindable.
-
-config FEATURE_MOUNT_FSTAB
-	depends on MOUNT
-	bool "Support /etc/fstab and -a"
-	default y
-	help
-	  Support mount all and looking for files in /etc/fstab.
-
-config PIVOT_ROOT
-	bool "pivot_root"
-	default n
-	help
-	  The pivot_root utility swaps the mount points for the root filesystem
-	  with some other mounted filesystem. This allows you to do all sorts
-	  of wild and crazy things with your Linux system and is far more
-	  powerful than 'chroot'.
-
-	  Note: This is for initrd in linux 2.4. Under initramfs (introduced
-	  in linux 2.6) use switch_root instead.
-
-config RDATE
-	bool "rdate"
-	default n
-	help
-	  The rdate utility allows you to synchronize the date and time of your
-	  system clock with the date and time of a remote networked system using
-	  the RFC868 protocol, which is built into the inetd daemon on most
-	  systems.
-
-config RDEV
-       bool "rdev"
-       default n
-       help
-	  Print the device node associated with the filesystem mounted at '/'.
-
-config READPROFILE
-	bool "readprofile"
-	default n
-	help
-	  This allows you to parse /proc/profile for basic profiling.
-
-config RTCWAKE
-	bool "rtcwake"
-	default n
-	help
-	  Enter a system sleep state until specified wakeup time.
-
-config SCRIPT
-	bool "script"
-	default n
-	help
-	  The script makes typescript of terminal session.
-
-config SETARCH
-	bool "setarch"
-	default n
-	help
-	  The linux32 utility is used to create a 32bit environment for the
-	  specified program (usually a shell). It only makes sense to have
-	  this util on a system that supports both 64bit and 32bit userland
-	  (like amd64/x86, ppc64/ppc, sparc64/sparc, etc...).
-
-config SWAPONOFF
-	bool "swaponoff"
-	default n
-	help
-	  This option enables both the 'swapon' and the 'swapoff' utilities.
-	  Once you have created some swap space using 'mkswap', you also need
-	  to enable your swap space with the 'swapon' utility. The 'swapoff'
-	  utility is used, typically at system shutdown, to disable any swap
-	  space. If you are not using any swap space, you can leave this
-	  option disabled.
-
-config FEATURE_SWAPON_PRI
-	bool "Support priority option -p"
-	default n
-	depends on SWAPONOFF
-	help
-	  Enable support for setting swap device priority in swapon.
-
-config SWITCH_ROOT
-	bool "switch_root"
-	default n
-	help
-	  The switch_root utility is used from initramfs to select a new
-	  root device. Under initramfs, you have to use this instead of
-	  pivot_root. (Stop reading here if you don't care why.)
-
-	  Booting with initramfs extracts a gzipped cpio archive into rootfs
-	  (which is a variant of ramfs/tmpfs). Because rootfs can't be moved
-	  or unmounted*, pivot_root will not work from initramfs. Instead,
-	  switch_root deletes everything out of rootfs (including itself),
-	  does a mount --move that overmounts rootfs with the new root, and
-	  then execs the specified init program.
-
-	  * Because the Linux kernel uses rootfs internally as the starting
-	  and ending point for searching through the kernel's doubly linked
-	  list of active mount points. That's why.
-
-config UMOUNT
-	bool "umount"
-	default n
-	help
-	  When you want to remove a mounted filesystem from its current mount
-	  point, for example when you are shutting down the system, the
-	  'umount' utility is the tool to use. If you enabled the 'mount'
-	  utility, you almost certainly also want to enable 'umount'.
-
-config FEATURE_UMOUNT_ALL
-	bool "Support option -a"
-	default n
-	depends on UMOUNT
-	help
-	  Support -a option to unmount all currently mounted filesystems.
-
-comment "Common options for mount/umount"
-	depends on MOUNT || UMOUNT
-
-config FEATURE_MOUNT_LOOP
-	bool "Support loopback mounts"
-	default n
-	depends on MOUNT || UMOUNT
-	help
-	  Enabling this feature allows automatic mounting of files (containing
-	  filesystem images) via the linux kernel's loopback devices.
-	  The mount command will detect you are trying to mount a file instead
-	  of a block device, and transparently associate the file with a
-	  loopback device. The umount command will also free that loopback
-	  device.
-
-	  You can still use the 'losetup' utility (to manually associate files
-	  with loop devices) if you need to do something advanced, such as
-	  specify an offset or cryptographic options to the loopback device.
-	  (If you don't want umount to free the loop device, use "umount -D".)
-
-config FEATURE_MTAB_SUPPORT
-	bool "Support for the old /etc/mtab file"
-	default n
-	depends on MOUNT || UMOUNT
-	select FEATURE_MOUNT_FAKE
-	help
-	  Historically, Unix systems kept track of the currently mounted
-	  partitions in the file "/etc/mtab". These days, the kernel exports
-	  the list of currently mounted partitions in "/proc/mounts", rendering
-	  the old mtab file obsolete. (In modern systems, /etc/mtab should be
-	  a symlink to /proc/mounts.)
-
-	  The only reason to have mount maintain an /etc/mtab file itself is if
-	  your stripped-down embedded system does not have a /proc directory.
-	  If you must use this, keep in mind it's inherently brittle (for
-	  example a mount under chroot won't update it), can't handle modern
-	  features like separate per-process filesystem namespaces, requires
-	  that your /etc directory be writeable, tends to get easily confused
-	  by --bind or --move mounts, won't update if you rename a directory
-	  that contains a mount point, and so on. (In brief: avoid.)
-
-	  About the only reason to use this is if you've removed /proc from
-	  your kernel.
+	#help
+	#  This is automatically selected if any of enabled applets need it.
+	#  You do not need to select it manually.
 
 endmenu
+
+menu 'Build Options'
+
+config STATIC
+	bool "Build BusyBox as a static binary (no shared libs)"
+	default n
+	help
+	  If you want to build a static BusyBox binary, which does not
+	  use or require any shared libraries, then enable this option.
+	  This can cause BusyBox to be considerably larger, so you should
+	  leave this option false unless you have a good reason (i.e.
+	  your target platform does not support shared libraries, or
+	  you are building an initrd which doesn't need anything but
+	  BusyBox, etc).
+
+	  Most people will leave this set to 'N'.
+
+config PIE
+	bool "Build BusyBox as a position independent executable"
+	default n
+	depends on !STATIC
+	help
+	  (TODO: what is it and why/when is it useful?)
+	  Most people will leave this set to 'N'.
+
+config NOMMU
+	bool "Force NOMMU build"
+	default n
+	help
+	  Busybox tries to detect whether architecture it is being
+	  built against supports MMU or not. If this detection fails,
+	  or if you want to build NOMMU version of busybox for testing,
+	  you may force NOMMU build here.
+
+	  Most people will leave this set to 'N'.
+
+# PIE can be made to work with BUILD_LIBBUSYBOX, but currently
+# build system does not support that
+config BUILD_LIBBUSYBOX
+	bool "Build shared libbusybox"
+	default n
+	depends on !FEATURE_PREFER_APPLETS && !PIE && !STATIC
+	help
+	  Build a shared library libbusybox.so.N.N.N which contains all
+	  busybox code.
+
+	  This feature allows every applet to be built as a tiny
+	  separate executable. Enabling it for "one big busybox binary"
+	  approach serves no purpose and increases code size.
+	  You should almost certainly say "no" to this.
+
+### config FEATURE_FULL_LIBBUSYBOX
+###	bool "Feature-complete libbusybox"
+###	default n if !FEATURE_SHARED_BUSYBOX
+###	depends on BUILD_LIBBUSYBOX
+###	help
+###	  Build a libbusybox with the complete feature-set, disregarding
+###	  the actually selected config.
+###
+###	  Normally, libbusybox will only contain the features which are
+###	  used by busybox itself. If you plan to write a separate
+###	  standalone application which uses libbusybox say 'Y'.
+###
+###	  Note: libbusybox is GPL, not LGPL, and exports no stable API that
+###	  might act as a copyright barrier. We can and will modify the
+###	  exported function set between releases (even minor version number
+###	  changes), and happily break out-of-tree features.
+###
+###	  Say 'N' if in doubt.
+
+config FEATURE_INDIVIDUAL
+	bool "Produce a binary for each applet, linked against libbusybox"
+	default y
+	depends on BUILD_LIBBUSYBOX
+	help
+	  If your CPU architecture doesn't allow for sharing text/rodata
+	  sections of running binaries, but allows for runtime dynamic
+	  libraries, this option will allow you to reduce memory footprint
+	  when you have many different applets running at once.
+
+	  If your CPU architecture allows for sharing text/rodata,
+	  having single binary is more optimal.
+
+	  Each applet will be a tiny program, dynamically linked
+	  against libbusybox.so.N.N.N.
+
+	  You need to have a working dynamic linker.
+
+config FEATURE_SHARED_BUSYBOX
+	bool "Produce additional busybox binary linked against libbusybox"
+	default y
+	depends on BUILD_LIBBUSYBOX
+	help
+	  Build busybox, dynamically linked against libbusybox.so.N.N.N.
+
+	  You need to have a working dynamic linker.
+
+### config BUILD_AT_ONCE
+###	bool "Compile all sources at once"
+###	default n
+###	help
+###	  Normally each source-file is compiled with one invocation of
+###	  the compiler.
+###	  If you set this option, all sources are compiled at once.
+###	  This gives the compiler more opportunities to optimize which can
+###	  result in smaller and/or faster binaries.
+###
+###	  Setting this option will consume alot of memory, e.g. if you
+###	  enable all applets with all features, gcc uses more than 300MB
+###	  RAM during compilation of busybox.
+###
+###	  This option is most likely only beneficial for newer compilers
+###	  such as gcc-4.1 and above.
+###
+###	  Say 'N' unless you know what you are doing.
+
+config LFS
+	bool "Build with Large File Support (for accessing files > 2 GB)"
+	default n
+	select FDISK_SUPPORT_LARGE_DISKS
+	help
+	  If you want to build BusyBox with large file support, then enable
+	  this option. This will have no effect if your kernel or your C
+	  library lacks large file support for large files. Some of the
+	  programs that can benefit from large file support include dd, gzip,
+	  cp, mount, tar, and many others. If you want to access files larger
+	  than 2 Gigabytes, enable this option. Otherwise, leave it set to 'N'.
+
+config CROSS_COMPILER_PREFIX
+	string "Cross Compiler prefix"
+	default ""
+	help
+	  If you want to build BusyBox with a cross compiler, then you
+	  will need to set this to the cross-compiler prefix, for example,
+	  "i386-uclibc-".
+
+	  Note that CROSS_COMPILE environment variable or
+	  "make CROSS_COMPILE=xxx ..." will override this selection.
+
+	  Native builds leave this empty.
+
+endmenu
+
+menu 'Debugging Options'
+
+config DEBUG
+	bool "Build BusyBox with extra Debugging symbols"
+	default n
+	help
+	  Say Y here if you wish to examine BusyBox internals while applets are
+	  running. This increases the size of the binary considerably, and
+	  should only be used when doing development. If you are doing
+	  development and want to debug BusyBox, answer Y.
+
+	  Most people should answer N.
+
+config DEBUG_PESSIMIZE
+	bool "Disable compiler optimizations"
+	default n
+	depends on DEBUG
+	help
+	  The compiler's optimization of source code can eliminate and reorder
+	  code, resulting in an executable that's hard to understand when
+	  stepping through it with a debugger. This switches it off, resulting
+	  in a much bigger executable that more closely matches the source
+	  code.
+
+config WERROR
+	bool "Abort compilation on any warning"
+	default n
+	help
+	  Selecting this will add -Werror to gcc command line.
+
+	  Most people should answer N.
+
+choice
+	prompt "Additional debugging library"
+	default NO_DEBUG_LIB
+	help
+	  Using an additional debugging library will make BusyBox become
+	  considerable larger and will cause it to run more slowly. You
+	  should always leave this option disabled for production use.
+
+	  dmalloc support:
+	  ----------------
+	  This enables compiling with dmalloc ( http://dmalloc.com/ )
+	  which is an excellent public domain mem leak and malloc problem
+	  detector. To enable dmalloc, before running busybox you will
+	  want to properly set your environment, for example:
+	    export DMALLOC_OPTIONS=debug=0x34f47d83,inter=100,log=logfile
+	  The 'debug=' value is generated using the following command
+	    dmalloc -p log-stats -p log-non-free -p log-bad-space \
+	       -p log-elapsed-time -p check-fence -p check-heap \
+	       -p check-lists -p check-blank -p check-funcs -p realloc-copy \
+	       -p allow-free-null
+
+	  Electric-fence support:
+	  -----------------------
+	  This enables compiling with Electric-fence support. Electric
+	  fence is another very useful malloc debugging library which uses
+	  your computer's virtual memory hardware to detect illegal memory
+	  accesses. This support will make BusyBox be considerable larger
+	  and run slower, so you should leave this option disabled unless
+	  you are hunting a hard to find memory problem.
+
+
+config NO_DEBUG_LIB
+	bool "None"
+
+config DMALLOC
+	bool "Dmalloc"
+
+config EFENCE
+	bool "Electric-fence"
+
+endchoice
+
+config INCLUDE_SUSv2
+	bool "Enable obsolete features removed before SUSv3?"
+	default y
+	help
+	  This option will enable backwards compatibility with SuSv2,
+	  specifically, old-style numeric options ('command -1 <file>')
+	  will be supported in head, tail, and fold. (Note: should
+	  affect renice too.)
+
+### config PARSE
+### 	bool "Uniform config file parser debugging applet: parse"
+
+endmenu
+
+menu 'Installation Options'
+
+config INSTALL_NO_USR
+	bool "Don't use /usr"
+	default n
+	help
+	  Disable use of /usr. Don't activate this option if you don't know
+	  that you really want this behaviour.
+
+choice
+	prompt "Applets links"
+	default INSTALL_APPLET_SYMLINKS
+	help
+	  Choose how you install applets links.
+
+config INSTALL_APPLET_SYMLINKS
+	bool "as soft-links"
+	help
+	  Install applets as soft-links to the busybox binary. This needs some
+	  free inodes on the filesystem, but might help with filesystem
+	  generators that can't cope with hard-links.
+
+config INSTALL_APPLET_HARDLINKS
+	bool "as hard-links"
+	help
+	  Install applets as hard-links to the busybox binary. This might
+	  count on a filesystem with few inodes.
+
+config INSTALL_APPLET_SCRIPT_WRAPPERS
+	bool "as script wrappers"
+	help
+	  Install applets as script wrappers that call the busybox binary.
+
+config INSTALL_APPLET_DONT
+	bool "not installed"
+	depends on FEATURE_INSTALLER || FEATURE_SH_STANDALONE || FEATURE_PREFER_APPLETS
+	help
+	  Do not install applet links. Useful when using the -install feature
+	  or a standalone shell for rescue purposes.
+
+endchoice
+
+choice
+	prompt "/bin/sh applet link"
+	default INSTALL_SH_APPLET_SYMLINK
+	depends on INSTALL_APPLET_SCRIPT_WRAPPERS
+	help
+	  Choose how you install /bin/sh applet link.
+
+config INSTALL_SH_APPLET_SYMLINK
+	bool "as soft-link"
+	help
+	  Install /bin/sh applet as soft-link to the busybox binary.
+
+config INSTALL_SH_APPLET_HARDLINK
+	bool "as hard-link"
+	help
+	  Install /bin/sh applet as hard-link to the busybox binary.
+
+config INSTALL_SH_APPLET_SCRIPT_WRAPPER
+	bool "as script wrapper"
+	help
+	  Install /bin/sh applet as script wrapper that call the busybox
+	  binary.
+
+endchoice
+
+config PREFIX
+	string "BusyBox installation prefix"
+	default "./_install"
+	help
+	  Define your directory to install BusyBox files/subdirs in.
+
+endmenu
+
+source libbb/Config.in
+
+endmenu
+
+comment "Applets"
+
+source archival/Config.in
+source coreutils/Config.in
+source console-tools/Config.in
+source debianutils/Config.in
+source editors/Config.in
+source eperd/Config.in
+source findutils/Config.in
+source init/Config.in
+source loginutils/Config.in
+source e2fsprogs/Config.in
+source modutils/Config.in
+source util-linux/Config.in
+source miscutils/Config.in
+source networking/Config.in
+source printutils/Config.in
+source mailutils/Config.in
+source procps/Config.in
+source runit/Config.in
+source selinux/Config.in
+source shell/Config.in
+source sysklogd/Config.in
